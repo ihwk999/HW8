@@ -18,20 +18,22 @@ def load_rest_data(db):
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
 
-    cursor.execute("SELECT name, category_id, building_id, rating FROM restaurants")
+    cursor.execute("SELECT r.name, c.category, b.building, r.rating FROM restaurants r "
+                   "JOIN categories c ON r.category_id = c.id "
+                   "JOIN buildings b ON r.building_id = b.id")
     rows = cursor.fetchall()
 
     restaurants = {}
     for row in rows:
-        name, category_id, building_id, rating = row
+        name, category, building, rating = row
         if name not in restaurants:
-            restaurants[name] = {"category": category_id, "building": building_id, "rating": rating}
+            restaurants[name] = {"category": category, "building": building, "rating": rating}
 
     cursor.close()
     conn.close()
 
-    print(restaurants)
     return restaurants
+
 
 def plot_rest_categories(db):
     """
@@ -82,19 +84,56 @@ def find_rest_in_building(building_num, db):
     conn.close()
     return restaurant_list
 
-#EXTRA CREDIT
-def get_highest_rating(db): #Do this through DB as well
-    """
-    This function return a list of two tuples. The first tuple contains the highest-rated restaurant category 
-    and the average rating of the restaurants in that category, and the second tuple contains the building number 
-    which has the highest rating of restaurants and its average rating.
 
-    This function should also plot two barcharts in one figure. The first bar chart displays the categories 
-    along the y-axis and their ratings along the x-axis in descending order (by rating).
-    The second bar chart displays the buildings along the y-axis and their ratings along the x-axis 
-    in descending order (by rating).
-    """
-    pass
+#EXTRA CREDIT
+def get_highest_rating(db):
+    conn = sqlite3.connect(db)
+    cursor = conn.cursor()
+
+    # Query to get the highest-rated restaurant category and its average rating
+    cursor.execute("SELECT c.category, AVG(r.rating) FROM restaurants r JOIN categories c ON r.category_id = c.id GROUP BY c.id ORDER BY AVG(r.rating) DESC LIMIT 1")
+    category_data = cursor.fetchone()
+
+    # Query to get the building with the highest-rated restaurants and its average rating
+    cursor.execute("SELECT b.building, AVG(r.rating) FROM restaurants r JOIN buildings b ON r.building_id = b.id GROUP BY b.id ORDER BY AVG(r.rating) DESC LIMIT 1")
+    building_data = cursor.fetchone()
+
+    # Query to get the data for the category bar chart
+    cursor.execute("SELECT c.category, AVG(r.rating) FROM restaurants r JOIN categories c ON r.category_id = c.id GROUP BY c.id ORDER BY AVG(r.rating) DESC")
+    category_rows = cursor.fetchall()
+
+    # Query to get the data for the building bar chart
+    cursor.execute("SELECT b.id, AVG(r.rating) FROM restaurants r JOIN buildings b ON r.building_id = b.id GROUP BY b.id ORDER BY AVG(r.rating) DESC")
+    building_rows = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    # Create the data for the category bar chart
+    category_labels = [row[0] for row in category_rows]
+    category_ratings = [row[1] for row in category_rows]
+
+    # Create the data for the building bar chart
+    building_labels = [row[0] for row in building_rows]
+    building_ratings = [row[1] for row in building_rows]
+
+    # Create and show the category bar chart
+    plt.figure(figsize=(8,6))
+    plt.barh(category_labels, category_ratings)
+    plt.xlabel("Average rating")
+    plt.ylabel("Category")
+    plt.title("Average ratings by restaurant category")
+    plt.show()
+
+    # Create and show the building bar chart
+    plt.figure(figsize=(8,6))
+    plt.barh(building_labels, building_ratings)
+    plt.xlabel("Average rating")
+    plt.ylabel("Building")
+    plt.title("Average ratings by building")
+    plt.show()
+
+    return [(category_data[0], category_data[1]), (building_data[0], building_data[1])]
 
 #Try calling your functions here
 def main():
